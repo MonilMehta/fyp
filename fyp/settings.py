@@ -27,6 +27,9 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-rsssb!zi9tu&ao
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
+# Detect if running on Render
+IS_RENDER = os.environ.get('RENDER') == 'true'
+
 # Allow all hosts in production (configure properly for your domain)
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
@@ -82,16 +85,21 @@ WSGI_APPLICATION = 'fyp.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# Use PostgreSQL in production (Render), SQLite in development
-if os.environ.get('DATABASE_URL'):
+# Use PostgreSQL in production, SQLite in development
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Production: Use PostgreSQL
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+            default=DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
+            ssl_require=True,
         )
     }
 else:
+    # Development: Use SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
