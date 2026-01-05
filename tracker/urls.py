@@ -3,13 +3,15 @@ URL configuration for tracker app.
 All routes designed to look like normal SaaS traffic.
 """
 from django.urls import path, re_path
-
-from django.urls import path, re_path
+from django.views.generic import RedirectView
 
 from .views import assets, config, telemetry, fonts, health, dashboard
 
 
 urlpatterns = [
+    # Root redirect to dashboard
+    path('', RedirectView.as_view(url='/dashboard/', permanent=False), name='root'),
+    
     # Dashboard endpoints
     path('dashboard/', dashboard.index, name='dashboard_index'),
     path('dashboard/events/', dashboard.events_list, name='dashboard_events'),

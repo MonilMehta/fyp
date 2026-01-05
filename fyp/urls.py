@@ -16,9 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+def favicon(request):
+    """Return empty favicon to prevent 404s."""
+    return HttpResponse(status=204)
+
 urlpatterns = [
+    path('favicon.ico', favicon),
     path('admin/', admin.site.urls),
     path('', include('tracker.urls')),
     
