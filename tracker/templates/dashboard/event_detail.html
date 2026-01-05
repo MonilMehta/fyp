@@ -1,0 +1,143 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Event Details - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <a href="{% url 'dashboard_events' %}" class="btn btn-secondary">← Back</a>
+        <div>
+            <h1 class="page-title">Event Details</h1>
+            <p class="page-subtitle">{{ event.timestamp }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Core Info -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Request Information</h2>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Endpoint</label>
+                <div class="font-mono" style="background: var(--bg-secondary); padding: 8px; border-radius: 4px;">
+                    {{ event.method }} {{ event.endpoint }}
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">CID (Document ID)</label>
+                    <div class="font-mono text-accent-primary">
+                        {% if event.cid %}
+                        <a href="{% url 'dashboard_events' %}?cid={{ event.cid }}"
+                            style="color: var(--accent-primary);">{{ event.cid }}</a>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Timestamp</label>
+                    <div>{{ event.timestamp }}</div>
+                </div>
+            </div>
+
+            {% if event.is_first_access %}
+            <div class="badge badge-success mb-4">First access to this document</div>
+            {% endif %}
+
+            {% if event.query_params %}
+            <div class="form-group">
+                <label class="form-label">Query Parameters</label>
+                <pre
+                    style="background: var(--bg-secondary); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem;">{{ event.query_params }}</pre>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Client Intelligence -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Client Intelligence</h2>
+        </div>
+        <div class="card-body">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">IP Address</label>
+                    <div class="font-mono">
+                        <a href="{% url 'dashboard_events' %}?ip={{ event.ip_address }}"
+                            style="color: var(--text-primary);">{{ event.ip_address }}</a>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Location</label>
+                    <div>{{ event.city|default:"-" }}, {{ event.country|default:"-" }}</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Client App</label>
+                    <div>{{ event.client_app|default:"-" }} {{ event.client_build }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">OS / Device</label>
+                    <div>{{ event.os_name|default:"-" }} {{ event.os_version }}</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Browser</label>
+                    <div>{{ event.browser_name|default:"-" }} {{ event.browser_version }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">ISP / ASN</label>
+                    <div class="text-sm truncate" title="{{ event.isp }}">{{ event.isp|default:"-" }}</div>
+                    <div class="text-xs text-muted">{{ event.asn }}</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">User Agent</label>
+                <div class="text-xs text-muted"
+                    style="word-break: break-all; background: var(--bg-secondary); padding: 8px; border-radius: 4px;">
+                    {{ event.user_agent }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if related_by_cid %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Other Events for CID: {{ event.cid }}</h2>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Endpoint</th>
+                <th>IP</th>
+                <th>Client</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rel_event in related_by_cid %}
+            <tr>
+                <td class="text-muted text-sm">{{ rel_event.timestamp|timesince }} ago</td>
+                <td>{{ rel_event.endpoint }}</td>
+                <td class="font-mono text-sm">{{ rel_event.ip_address }}</td>
+                <td class="text-sm">{{ rel_event.client_app|default:rel_event.browser_name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

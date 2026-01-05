@@ -1,0 +1,239 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Overview of document asset access and render events</p>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Render Events</div>
+        <div class="stat-value gradient">{{ total_events }}</div>
+        <div class="stat-change positive">+{{ events_24h }} in last 24h</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Document Assets</div>
+        <div class="stat-value">{{ total_documents }}</div>
+        <div class="stat-change text-muted">Unique tracked documents</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Unique IPs</div>
+        <div class="stat-value">{{ unique_ips }}</div>
+        <div class="stat-change positive">+{{ unique_ips_24h }} in last 24h</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Events (7 days)</div>
+        <div class="stat-value">{{ events_7d }}</div>
+        <div class="stat-change text-muted">Last 7 days activity</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Activity Timeline (24h)</h2>
+        </div>
+        <div class="card-body">
+            <canvas id="activityChart" style="max-height: 250px;"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Device Distribution</h2>
+        </div>
+        <div class="card-body">
+            <div style="height: 250px; position: relative;">
+                <canvas id="deviceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Recent Events -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Recent Render Events</h2>
+            <a href="{% url 'dashboard_events' %}" class="btn btn-secondary">View All</a>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>IP / Location</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in recent_events|slice:":10" %}
+                <tr>
+                    <td>
+                        <a href="{% url 'dashboard_event_detail' event.id %}" class="truncate"
+                            style="max-width: 180px; display: block; color: var(--text-primary); text-decoration: none;">
+                            {{ event.endpoint|truncatechars:25 }}
+                        </a>
+                        {% if event.cid %}
+                        <span class="badge badge-primary">{{ event.cid|truncatechars:8 }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="font-mono text-sm">{{ event.ip_address|default:"-" }}</div>
+                        {% if event.country %}
+                        <div class="text-xs text-muted">{{ event.country }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted text-sm">{{ event.timestamp|timesince }} ago</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-muted text-center">No events recorded yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top Documents & ISPs -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Top Document Assets</h2>
+                <a href="{% url 'dashboard_documents' %}" class="btn btn-secondary">View All</a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>CID</th>
+                        <th>Events</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in top_documents|slice:":5" %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'dashboard_document_detail' doc.id %}" class="font-mono"
+                                style="color: var(--accent-primary); text-decoration: none;">
+                                {{ doc.cid|truncatechars:16 }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge badge-success">{{ doc.event_count }}</span>
+                        </td>
+                        <td class="text-muted text-sm">{{ doc.created_at|timesince }} ago</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-muted text-center">No documents tracked yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="flex: 1;">
+            <div class="card-header">
+                <h2 class="card-title">Corporate Network Detection</h2>
+            </div>
+            <div class="card-body">
+                {% for isp in top_isps %}
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <div style="font-weight: 500;">{{ isp.isp }}</div>
+                        <div class="text-xs text-muted">Detected ISP / Organization</div>
+                    </div>
+                    <span class="badge badge-warning">{{ isp.count }} hits</span>
+                </div>
+                {% empty %}
+                <p class="text-muted">No corporate networks detected</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Activity Chart
+        const ctxActivity = document.getElementById('activityChart').getContext('2d');
+        // Ensure Django context variables are properly formatted for JS
+        // The '|safe' filter is critical here for the list of dicts
+        const activityRaw = {{ hourly_activity| safe
+    }};
+
+    // Sort logic just in case
+    activityRaw.sort((a, b) => new Date(a.hour) - new Date(b.hour));
+
+    const labels = activityRaw.map(d => {
+        const date = new Date(d.hour);
+        return date.getHours() + ':00';
+    });
+    const values = activityRaw.map(d => d.count);
+
+    new Chart(ctxActivity, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Render Events',
+                data: values,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#2a2a3a' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Device Chart
+    const ctxDevice = document.getElementById('deviceChart').getContext('2d');
+    const deviceStats = {{ device_stats| safe }};
+
+    new Chart(ctxDevice, {
+        type: 'doughnut',
+        data: {
+            labels: ['Desktop', 'Mobile', 'Office Apps'],
+            datasets: [{
+                data: [deviceStats.desktop, deviceStats.mobile, deviceStats.office],
+                backgroundColor: [
+                    '#3b82f6', // Desktop - Blue
+                    '#10b981', // Mobile - Green
+                    '#f59e0b'  // Office - Orange
+                ],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

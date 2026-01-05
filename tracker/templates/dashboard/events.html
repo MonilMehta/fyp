@@ -1,0 +1,127 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Render Events - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Render Events</h1>
+    <p class="page-subtitle">Detailed log of all asset access events</p>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="grid-3">
+            <div class="form-group">
+                <label class="form-label">CID (Document ID)</label>
+                <input type="text" name="cid" value="{{ filters.cid }}" class="form-input"
+                    placeholder="Search by CID...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Endpoint</label>
+                <input type="text" name="endpoint" value="{{ filters.endpoint }}" class="form-input"
+                    placeholder="Search endpoint...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">IP Address</label>
+                <input type="text" name="ip" value="{{ filters.ip }}" class="form-input" placeholder="Search IP...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Country</label>
+                <input type="text" name="country" value="{{ filters.country }}" class="form-input"
+                    placeholder="Search country...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Client App</label>
+                <input type="text" name="client" value="{{ filters.client }}" class="form-input"
+                    placeholder="Search client...">
+            </div>
+            <div class="form-group" style="display: flex; align-items: flex-end;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Events Table -->
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Endpoint</th>
+                <th>CID</th>
+                <th>IP / Location</th>
+                <th>Client</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td class="text-muted text-sm" style="white-space: nowrap;">
+                    {{ event.timestamp|date:"Y-m-d H:i:s" }}
+                </td>
+                <td>
+                    <div class="truncate" style="max-width: 200px;" title="{{ event.endpoint }}">
+                        {{ event.endpoint }}
+                    </div>
+                </td>
+                <td>
+                    {% if event.cid %}
+                    <span class="badge badge-primary font-mono">{{ event.cid|truncatechars:12 }}</span>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="font-mono text-sm">{{ event.ip_address }}</div>
+                    {% if event.country %}
+                    <div class="text-xs text-muted">{{ event.country }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if event.client_app %}
+                    <div class="text-sm">{{ event.client_app }}</div>
+                    {% endif %}
+                    {% if event.os_name %}
+                    <div class="text-xs text-muted">{{ event.os_name }} {{ event.os_version }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'dashboard_event_detail' event.id %}" class="btn btn-secondary"
+                        style="padding: 4px 12px; font-size: 0.8rem;">
+                        View
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-muted text-center" style="padding: 40px;">
+                    No events found matching your filters.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if pagination.total_pages > 1 %}
+<div style="display: flex; justify-content: center; margin-top: 24px; gap: 8px;">
+    {% if events.has_previous %}
+    <a href="?page={{ events.previous_page_number }}&cid={{ filters.cid }}&ip={{ filters.ip }}&endpoint={{ filters.endpoint }}"
+        class="btn btn-secondary">Previous</a>
+    {% endif %}
+
+    <span style="display: flex; align-items: center; color: var(--text-muted);">
+        Page {{ pagination.page }} of {{ pagination.total_pages }}
+    </span>
+
+    {% if events.has_next %}
+    <a href="?page={{ events.next_page_number }}&cid={{ filters.cid }}&ip={{ filters.ip }}&endpoint={{ filters.endpoint }}"
+        class="btn btn-secondary">Next</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

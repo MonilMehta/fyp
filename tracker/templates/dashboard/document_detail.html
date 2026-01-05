@@ -1,0 +1,69 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Document Details - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <a href="{% url 'dashboard_documents' %}" class="btn btn-secondary">← Back</a>
+        <div>
+            <h1 class="page-title">Document Details</h1>
+            <p class="page-subtitle">CID: <span class="font-mono">{{ document.cid }}</span></p>
+        </div>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Events</div>
+        <div class="stat-value">{{ events|length }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Unique Readers (IPs)</div>
+        <div class="stat-value">{{ unique_ips }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Countries</div>
+        <div class="stat-value">{{ unique_countries }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Activity Log</h2>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Endpoint</th>
+                <th>IP Address</th>
+                <th>Location</th>
+                <th>Client App</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in events %}
+            <tr>
+                <td class="text-muted text-sm">{{ event.timestamp|date:"M d, H:i:s" }}</td>
+                <td>
+                    <a href="{% url 'dashboard_event_detail' event.id %}"
+                        style="color: var(--text-primary); text-decoration: none;">
+                        {{ event.endpoint|truncatechars:40 }}
+                    </a>
+                </td>
+                <td class="font-mono text-sm">{{ event.ip_address }}</td>
+                <td>{{ event.country }}</td>
+                <td>{{ event.client_app }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-muted text-center" style="padding: 24px;">
+                    No activity recorded for this document.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

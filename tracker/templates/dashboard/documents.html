@@ -1,0 +1,66 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Documents - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Document Assets</h1>
+    <p class="page-subtitle">All tracked documents and their engagement</p>
+</div>
+
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>CID</th>
+                <th>Name / Metadata</th>
+                <th>Created</th>
+                <th>First Access</th>
+                <th>Last Access</th>
+                <th>Total Events</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td>
+                    <span class="badge badge-primary font-mono">{{ doc.cid|truncatechars:16 }}</span>
+                </td>
+                <td>
+                    {% if doc.name %}
+                    <div style="font-weight: 500;">{{ doc.name }}</div>
+                    {% else %}
+                    <span class="text-muted text-sm">Untitled</span>
+                    {% endif %}
+                </td>
+                <td class="text-muted text-sm">
+                    {{ doc.created_at|date:"M d, Y" }}
+                </td>
+                <td class="text-muted text-sm">
+                    {{ doc.first_access|timesince }} ago
+                </td>
+                <td class="text-muted text-sm">
+                    {{ doc.last_access|timesince }} ago
+                </td>
+                <td>
+                    <span class="badge badge-success">{{ doc.event_count }}</span>
+                </td>
+                <td>
+                    <a href="{% url 'dashboard_document_detail' doc.id %}" class="btn btn-secondary"
+                        style="padding: 4px 12px; font-size: 0.8rem;">
+                        Details
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-muted text-center" style="padding: 40px;">
+                    No tracked documents found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
