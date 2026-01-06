@@ -5,7 +5,7 @@ All routes designed to look like normal SaaS traffic.
 from django.urls import path, re_path
 from django.views.generic import RedirectView
 
-from .views import assets, config, telemetry, fonts, health, dashboard
+from .views import assets, config, telemetry, fonts, health, dashboard, api
 
 
 urlpatterns = [
@@ -20,6 +20,10 @@ urlpatterns = [
     path('dashboard/documents/<int:doc_id>/', dashboard.document_detail, name='dashboard_document_detail'),
     path('dashboard/api/hourly/', dashboard.api_hourly_activity, name='api_hourly_activity'),
     path('dashboard/api/endpoints/', dashboard.api_events_by_endpoint, name='api_events_by_endpoint'),
+
+    # Document tracking APIs
+    path('api/documents/create', api.create_document, name='api_create_document'),
+    path('api/beacon', api.beacon, name='api_beacon'),
 
     # Asset retrieval endpoints
     re_path(r'^assets/media/(?P<filename>.+)$', assets.media_asset, name='media_asset'),

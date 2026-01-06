@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils import timezone
+
 import uuid
 
 
@@ -6,6 +8,7 @@ class Document(models.Model):
     """Represents a tracked document with a unique CID."""
     cid = models.CharField(max_length=64, unique=True, db_index=True)
     name = models.CharField(max_length=255, blank=True)
+    file_path = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
 
@@ -64,7 +67,7 @@ class AccessLog(models.Model):
     request_body = models.JSONField(default=dict, blank=True)
 
     # Timing
-    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
     clock_skew = models.IntegerField(null=True, blank=True)
 
     # Correlation

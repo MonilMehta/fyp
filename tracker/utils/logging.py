@@ -2,6 +2,8 @@
 Logging service for tracking document access.
 Uses stealth terminology throughout.
 """
+import datetime
+from django.utils import timezone
 from typing import Optional
 from ..models import Document, AccessLog
 from .fingerprint import extract_request_metadata, extract_query_params
@@ -11,7 +13,8 @@ def log_access(
     request,
     endpoint: str,
     cid: Optional[str] = None,
-    request_body: Optional[dict] = None
+    request_body: Optional[dict] = None,
+    timestamp: Optional[datetime.datetime] = None
 ) -> AccessLog:
     """
     Log a document render event.
@@ -21,6 +24,7 @@ def log_access(
         endpoint: The endpoint path being accessed
         cid: Optional CID extracted from query params
         request_body: Optional request body for POST requests
+        timestamp: Optional timestamp of the event (defaults to now)
     
     Returns:
         AccessLog instance
@@ -49,6 +53,7 @@ def log_access(
         query_params=query_params,
         request_body=request_body or {},
         is_first_access=is_first_access,
+        timestamp=timestamp or timezone.now(),
         **metadata
     )
     
