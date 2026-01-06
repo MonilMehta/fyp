@@ -5,4 +5,4 @@ whitenoise>=6.6
 gunicorn>=21.0
 dj-database-url>=2.0
 psycopg2-binary>=2.9
-jwt>=2.0
+jwt>=1.4.0
