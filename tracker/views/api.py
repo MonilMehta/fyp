@@ -16,17 +16,33 @@ from ..utils.logging import log_access
 
 @extend_schema(
     operation_id="create_document",
-    summary="Register a new document",
-    description="Registers a new document with CID, file path, and metadata.",
+    summary="Register new document(s)",
+    description="Registers one or more documents with CID, file path, and metadata.",
     request={
         "application/json": {
-            "type": "object",
-            "properties": {
-                "uuid": {"type": "string", "description": "Document CID/UUID"},
-                "file_path": {"type": "string", "description": "Original file path"},
-                "document_name": {"type": "string", "description": "Document name"},
-                "created_at": {"type": "string", "description": "Creation timestamp"},
-            }
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "uuid": {"type": "string", "description": "Document CID/UUID"},
+                        "file_path": {"type": "string", "description": "Original file path"},
+                        "document_name": {"type": "string", "description": "Document name"},
+                        "created_at": {"type": "string", "description": "Creation timestamp"},
+                    }
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "uuid": {"type": "string", "description": "Document CID/UUID"},
+                            "file_path": {"type": "string", "description": "Original file path"},
+                            "document_name": {"type": "string", "description": "Document name"},
+                            "created_at": {"type": "string", "description": "Creation timestamp"},
+                        }
+                    }
+                }
+            ]
         }
     },
     responses={
@@ -39,29 +55,44 @@ from ..utils.logging import log_access
 @api_view(["POST"])
 def create_document(request):
     """
-    Register a new tracked document.
+    Register new tracked document(s).
     
-    Payload: uuid, file_path, document_name, created_at
+    Payload: uuid, file_path, document_name, created_at (as object or list of objects)
     """
     try:
         data = json.loads(request.body)
-        resource_id = data.get('uuid')
-        file_path = data.get('file_path', '')
-        name = data.get('document_name', '')
-        # created_at logic remains as per user instruction to prioritize param matching
         
-        if not resource_id:
-            return JsonResponse({"error": "uuid is required"}, status=400)
+        if isinstance(data, list):
+            items = data
+        else:
+            items = [data]
+            
+        processed_ids = []
+        for item in items:
+            resource_id = item.get('uuid')
+            file_path = item.get('file_path', '')
+            name = item.get('document_name', '')
+            
+            if not resource_id:
+                continue
 
-        doc, created = Document.objects.update_or_create(
-            cid=resource_id,
-            defaults={
-                'name': name,
-                'file_path': file_path,
-            }
-        )
+            doc, created = Document.objects.update_or_create(
+                cid=resource_id,
+                defaults={
+                    'name': name,
+                    'file_path': file_path,
+                }
+            )
+            processed_ids.append(doc.cid)
         
-        return JsonResponse({"status": "ok", "resource_id": doc.cid})
+        if not processed_ids and items:
+            return JsonResponse({"error": "uuid is required for at least one item"}, status=400)
+
+        # Return single id for backward compatibility if only one item was sent as object
+        if not isinstance(data, list) and len(processed_ids) == 1:
+            return JsonResponse({"status": "ok", "resource_id": processed_ids[0]})
+            
+        return JsonResponse({"status": "ok", "resource_ids": processed_ids})
         
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)

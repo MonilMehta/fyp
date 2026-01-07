@@ -12,8 +12,9 @@
     <table class="table">
         <thead>
             <tr>
-                <th>CID</th>
+                <th>Resource ID</th>
                 <th>Name / Metadata</th>
+                <th>File Path</th>
                 <th>Created</th>
                 <th>First Access</th>
                 <th>Last Access</th>
@@ -33,6 +34,9 @@
                     {% else %}
                     <span class="text-muted text-sm">Untitled</span>
                     {% endif %}
+                </td>
+                <td class="text-muted text-sm font-mono">
+                    {{ doc.file_path|default:"-"|truncatechars:60 }}
                 </td>
                 <td class="text-muted text-sm">
                     {{ doc.created_at|date:"M d, Y" }}

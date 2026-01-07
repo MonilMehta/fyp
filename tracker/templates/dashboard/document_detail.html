@@ -8,7 +8,13 @@
         <a href="{% url 'dashboard_documents' %}" class="btn btn-secondary">← Back</a>
         <div>
             <h1 class="page-title">Document Details</h1>
-            <p class="page-subtitle">CID: <span class="font-mono">{{ document.cid }}</span></p>
+            <p class="page-subtitle">
+                Resource ID: <span class="font-mono">{{ document.cid }}</span>
+                {% if document.file_path %}
+                <span style="margin: 0 8px; color: var(--border-color);">|</span>
+                <span class="font-mono text-muted">{{ document.file_path }}</span>
+                {% endif %}
+            </p>
         </div>
     </div>
 </div>
