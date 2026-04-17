@@ -100,6 +100,7 @@
 
     <!-- Top Documents & ISPs -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Top Documents -->
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">Top Document Assets</h2>
@@ -155,6 +156,61 @@
                 {% endfor %}
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Bot Signals -->
+<div class="grid-1" style="grid-template-columns: 1fr; margin-top: 24px;">
+    <div class="card">
+        <div class="card-header" style="border-bottom: 1px solid #4ade8033; background-color: rgba(74, 222, 128, 0.05);">
+            <h2 class="card-title" style="color: #4ade80;">Recent Bot Attack Signals</h2>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Type / Vector</th>
+                    <th>Target Resource</th>
+                    <th>Source IP</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for signal in recent_bot_signals|slice:":10" %}
+                <tr>
+                    <td>
+                        <div style="font-weight: bold; color: var(--text-primary);">{{ signal.bot_type|title }}</div>
+                        <div class="text-xs text-muted">{{ signal.attack_vector }}</div>
+                    </td>
+                    <td>
+                        {% if signal.document %}
+                        <a href="{% url 'dashboard_document_detail' signal.document.id %}" class="font-mono badge badge-primary text-xs" style="text-decoration: none;">
+                            {{ signal.cid|truncatechars:12 }}
+                        </a>
+                        {% else %}
+                        <span class="font-mono badge badge-secondary text-xs">{{ signal.cid|truncatechars:12|default:"Unknown" }}</span>
+                        {% endif %}
+                        <div class="text-xs text-muted mt-1">{{ signal.target_endpoint|truncatechars:20 }}</div>
+                    </td>
+                    <td>
+                        <div class="font-mono text-sm">{{ signal.source_ip|default:"-" }}</div>
+                    </td>
+                    <td>
+                        {% if signal.success %}
+                        <span class="badge badge-error">Successful</span>
+                        {% else %}
+                        <span class="badge badge-primary">Blocked/Failed</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted text-sm">{{ signal.timestamp|timesince }} ago</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-muted text-center">No bot signals recorded yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 

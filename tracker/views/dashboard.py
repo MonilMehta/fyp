@@ -9,7 +9,7 @@ from django.db.models.functions import TruncDate, TruncHour
 from django.utils import timezone
 from datetime import timedelta
 
-from ..models import Document, AccessLog
+from ..models import Document, AccessLog, BotSignal
 
 
 def index(request):
@@ -95,6 +95,9 @@ def index(request):
         count=Count('id')
     ).order_by('-count')[:5]
 
+    # Recent Bot Signals
+    recent_bot_signals = BotSignal.objects.select_related('document').order_by('-timestamp')[:20]
+
     context = {
         'total_documents': total_documents,
         'total_events': total_events,
@@ -110,6 +113,7 @@ def index(request):
         'hourly_activity': list(hourly_activity),
         'device_stats': device_stats,
         'top_isps': top_isps,
+        'recent_bot_signals': recent_bot_signals,
     }
     return render(request, 'dashboard/index.html', context)
 
