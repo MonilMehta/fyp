@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import Document, AccessLog
+from .models import Document, AccessLog, BotSignal
+
+
+@admin.register(BotSignal)
+class BotSignalAdmin(admin.ModelAdmin):
+    list_display = ('bot_type', 'attack_vector', 'source_ip', 'timestamp', 'success')
+    list_filter = ('bot_type', 'attack_vector', 'success', 'timestamp')
+    search_fields = ('cid', 'source_ip', 'bot_type', 'attack_vector')
+    readonly_fields = ('timestamp',)
 
 
 @admin.register(Document)

@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
 
-from ..models import Document
+from ..models import Document, BotSignal
 from ..utils.logging import log_access
 
 @extend_schema(
@@ -147,3 +147,87 @@ def beacon(request):
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@extend_schema(
+    operation_id="bot_signal",
+    summary="Accept bot signals",
+    description="Accepts attack/bot detection signals for tracking.",
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "bot_type": {"type": "string"},
+                "attack_vector": {"type": "string"},
+                "source_ip": {"type": "string"},
+                "target_resource": {"type": "string"},
+                "target_endpoint": {"type": "string"},
+                "success": {"type": "boolean"},
+                "timestamp": {"type": "string"},
+                "details": {
+                    "type": "object",
+                    "properties": {
+                        "user_agent": {"type": "string"},
+                        "behavior_indicators": {"type": "array"},
+                        "request_headers": {"type": "object"},
+                        "custom_metadata": {"type": "object"}
+                    }
+                }
+            }
+        }
+    },
+    responses={
+        201: OpenApiResponse(description="Signal accepted"),
+        400: OpenApiResponse(description="Invalid request")
+    },
+    tags=["API"],
+)
+@csrf_exempt
+@api_view(["POST"])
+def bot_signal(request):
+    """
+    Accept bot detection or attack signals.
+    """
+    try:
+        data = json.loads(request.body)
+        
+        target_resource = data.get('target_resource', '')
+        document = None
+        if target_resource:
+            document = Document.objects.filter(cid=target_resource).first()
+
+        details = data.get('details', {})
+
+        signal = BotSignal.objects.create(
+            document=document,
+            cid=target_resource,
+            bot_type=data.get('bot_type', ''),
+            attack_vector=data.get('attack_vector', ''),
+            source_ip=data.get('source_ip') or None,
+            target_endpoint=data.get('target_endpoint', ''),
+            success=data.get('success', False),
+            user_agent=details.get('user_agent', ''),
+            behavior_indicators=details.get('behavior_indicators', []),
+            request_headers=details.get('request_headers', {}),
+            custom_metadata=details.get('custom_metadata', {})
+        )
+
+        # Parse timestamp if provided
+        ts = data.get('timestamp')
+        if ts:
+            try:
+                from django.utils.dateparse import parse_datetime
+                parsed_ts = parse_datetime(ts)
+                if parsed_ts:
+                    signal.timestamp = parsed_ts
+                    signal.save()
+            except Exception:
+                pass
+                
+        return JsonResponse({"status": "ok", "id": signal.id}, status=201)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+

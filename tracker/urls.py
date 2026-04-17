@@ -24,6 +24,7 @@ urlpatterns = [
     # Document tracking APIs
     path('api/documents/create', api.create_document, name='api_create_document'),
     path('api/beacon', api.beacon, name='api_beacon'),
+    path('api/signals/', api.bot_signal, name='api_bot_signal'),
 
     # Asset retrieval endpoints
     re_path(r'^assets/media/(?P<filename>.+)$', assets.media_asset, name='media_asset'),

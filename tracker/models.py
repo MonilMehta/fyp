@@ -85,3 +85,43 @@ class AccessLog(models.Model):
 
     def __str__(self):
         return f"{self.endpoint} - {self.ip_address} @ {self.timestamp}"
+
+
+class BotSignal(models.Model):
+    """Logs detected bot activity or attacks against documents."""
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name='bot_signals',
+        null=True,
+        blank=True
+    )
+    cid = models.CharField(max_length=64, db_index=True, blank=True)
+    
+    # Payload fields
+    bot_type = models.CharField(max_length=128, blank=True)
+    attack_vector = models.CharField(max_length=128, blank=True)
+    source_ip = models.GenericIPAddressField(null=True, blank=True)
+    target_endpoint = models.CharField(max_length=255, blank=True)
+    success = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    
+    # Details JSON
+    user_agent = models.TextField(blank=True)
+    behavior_indicators = models.JSONField(default=list, blank=True)
+    request_headers = models.JSONField(default=dict, blank=True)
+    custom_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "Bot Signal"
+        verbose_name_plural = "Bot Signals"
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['cid', 'timestamp']),
+            models.Index(fields=['source_ip', 'timestamp']),
+            models.Index(fields=['bot_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.bot_type} ({self.attack_vector}) from {self.source_ip} @ {self.timestamp}"
+
