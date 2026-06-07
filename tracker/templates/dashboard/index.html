@@ -313,6 +313,9 @@
     </div>
 </div>
 
+{{ hourly_activity|json_script:"hourly-activity-data" }}
+{{ device_stats|json_script:"device-stats-data" }}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -340,6 +343,21 @@
             markerLayer = L.layerGroup().addTo(mapInstance);
             document.getElementById('mapDays').addEventListener('change', loadMapPoints);
             loadMapPoints();
+            setTimeout(function () {
+                mapInstance.invalidateSize();
+            }, 100);
+        }
+
+        function fitMapToPoints(bounds) {
+            if (!bounds.length) {
+                mapInstance.setView([20, 0], 2);
+                return;
+            }
+            if (bounds.length === 1) {
+                mapInstance.setView(bounds[0], 5);
+                return;
+            }
+            mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
         }
 
         async function loadMapPoints() {
@@ -385,84 +403,84 @@
                     bounds.push([point.lat, point.lng]);
                 });
 
-                mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+                fitMapToPoints(bounds);
+                mapInstance.invalidateSize();
             } catch (error) {
+                console.error('Map load failed:', error);
                 emptyState.style.display = 'block';
                 emptyState.textContent = 'Unable to load map data.';
             }
         }
 
         initMap();
-        // Activity Chart
-        const ctxActivity = document.getElementById('activityChart').getContext('2d');
-        // Ensure Django context variables are properly formatted for JS
-        // The '|safe' filter is critical here for the list of dicts
-        const activityRaw = {{ hourly_activity| safe
-    }};
 
-    // Sort logic just in case
-    activityRaw.sort((a, b) => new Date(a.hour) - new Date(b.hour));
+        const activityEl = document.getElementById('hourly-activity-data');
+        const deviceEl = document.getElementById('device-stats-data');
+        if (!activityEl || !deviceEl || typeof Chart === 'undefined') {
+            return;
+        }
 
-    const labels = activityRaw.map(d => {
-        const date = new Date(d.hour);
-        return date.getHours() + ':00';
-    });
-    const values = activityRaw.map(d => d.count);
+        const activityRaw = JSON.parse(activityEl.textContent);
+        activityRaw.sort((a, b) => new Date(a.hour) - new Date(b.hour));
 
-    new Chart(ctxActivity, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Render Events',
-                data: values,
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+        const labels = activityRaw.map(d => {
+            const date = new Date(d.hour);
+            return date.getHours() + ':00';
+        });
+        const values = activityRaw.map(d => d.count);
+
+        new Chart(document.getElementById('activityChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Render Events',
+                    data: values,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
             },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#2a2a3a' } },
-                x: { grid: { display: false } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#2a2a3a' } },
+                    x: { grid: { display: false } }
+                }
             }
-        }
-    });
+        });
 
-    // Device Chart
-    const ctxDevice = document.getElementById('deviceChart').getContext('2d');
-    const deviceStats = {{ device_stats| safe }};
+        const deviceStats = JSON.parse(deviceEl.textContent);
 
-    new Chart(ctxDevice, {
-        type: 'doughnut',
-        data: {
-            labels: ['Desktop', 'Mobile', 'Office Apps'],
-            datasets: [{
-                data: [deviceStats.desktop, deviceStats.mobile, deviceStats.office],
-                backgroundColor: [
-                    '#3b82f6', // Desktop - Blue
-                    '#10b981', // Mobile - Green
-                    '#f59e0b'  // Office - Orange
-                ],
-                borderWidth: 0,
-                hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: { position: 'right' }
+        new Chart(document.getElementById('deviceChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Desktop', 'Mobile', 'Office Apps'],
+                datasets: [{
+                    data: [deviceStats.desktop, deviceStats.mobile, deviceStats.office],
+                    backgroundColor: [
+                        '#3b82f6',
+                        '#10b981',
+                        '#f59e0b'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'right' }
+                }
             }
-        }
+        });
     });
-});
 </script>
 {% endblock %}
