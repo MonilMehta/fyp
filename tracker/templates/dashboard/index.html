@@ -1,6 +1,65 @@
 {% extends 'dashboard/base.html' %}
+{% load geo_tags %}
 
 {% block title %}Dashboard - Asset Monitor{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #eventsMap {
+        height: 420px;
+        border-radius: 8px;
+        background: var(--bg-secondary);
+    }
+
+    .map-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .map-legend {
+        display: flex;
+        gap: 16px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .map-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .map-legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .map-filter {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .map-filter select {
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+    }
+
+    .leaflet-container {
+        font-family: inherit;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -29,6 +88,46 @@
         <div class="stat-label">Events (7 days)</div>
         <div class="stat-value">{{ events_7d }}</div>
         <div class="stat-change text-muted">Last 7 days activity</div>
+    </div>
+</div>
+
+<!-- Global Activity Map -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="map-toolbar" style="width: 100%;">
+            <div>
+                <h2 class="card-title">Global Activity Map</h2>
+                <p class="text-sm text-muted" style="margin-top: 4px;">Aggregated dots by location — size reflects event volume</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                <div class="map-legend">
+                    <span class="map-legend-item">
+                        <span class="map-legend-dot" style="background: #6366f1;"></span>
+                        Render Events
+                    </span>
+                    <span class="map-legend-item">
+                        <span class="map-legend-dot" style="background: #4ade80;"></span>
+                        Bot Signals
+                    </span>
+                </div>
+                <div class="map-filter">
+                    <label class="text-sm text-muted" for="mapDays">Range</label>
+                    <select id="mapDays">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="all">All time</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="eventsMap"></div>
+        <p id="mapEmptyState" class="text-muted text-sm" style="display: none; margin-top: 12px; text-align: center;">
+            No geolocated events on the map yet. Public IPs are resolved automatically;
+            local/private IPs (127.0.0.1, 192.168.x) are excluded.
+        </p>
     </div>
 </div>
 
@@ -83,9 +182,7 @@
                     </td>
                     <td>
                         <div class="font-mono text-sm">{{ event.ip_address|default:"-" }}</div>
-                        {% if event.country %}
-                        <div class="text-xs text-muted">{{ event.country }}</div>
-                        {% endif %}
+                        <div class="text-xs text-muted">{{ event.city|geo_location:event }}</div>
                     </td>
                     <td class="text-muted text-sm">{{ event.timestamp|timesince }} ago</td>
                 </tr>
@@ -164,6 +261,7 @@
     <div class="card">
         <div class="card-header" style="border-bottom: 1px solid #4ade8033; background-color: rgba(74, 222, 128, 0.05);">
             <h2 class="card-title" style="color: #4ade80;">Recent Bot Attack Signals</h2>
+            <a href="{% url 'dashboard_signals' %}" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;">View All</a>
         </div>
         <table class="table">
             <thead>
@@ -194,6 +292,7 @@
                     </td>
                     <td>
                         <div class="font-mono text-sm">{{ signal.source_ip|default:"-" }}</div>
+                        <div class="text-xs text-muted">{{ signal.city|geo_location:signal }}</div>
                     </td>
                     <td>
                         {% if signal.success %}
@@ -218,8 +317,82 @@
 
 {% block extra_js %}
 {{ block.super }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const mapColors = { render: '#6366f1', bot: '#4ade80' };
+        let markerLayer = null;
+        let mapInstance = null;
+
+        function initMap() {
+            const mapEl = document.getElementById('eventsMap');
+            if (!mapEl || typeof L === 'undefined') {
+                return;
+            }
+
+            mapInstance = L.map('eventsMap', { worldCopyJump: true }).setView([20, 0], 2);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 19,
+            }).addTo(mapInstance);
+
+            markerLayer = L.layerGroup().addTo(mapInstance);
+            document.getElementById('mapDays').addEventListener('change', loadMapPoints);
+            loadMapPoints();
+        }
+
+        async function loadMapPoints() {
+            if (!markerLayer) {
+                return;
+            }
+
+            const days = document.getElementById('mapDays').value;
+            const emptyState = document.getElementById('mapEmptyState');
+
+            markerLayer.clearLayers();
+
+            try {
+                const response = await fetch(`/dashboard/api/map/?days=${days}`);
+                const data = await response.json();
+                const points = data.points || [];
+
+                if (!points.length) {
+                    emptyState.style.display = 'block';
+                    mapInstance.setView([20, 0], 2);
+                    return;
+                }
+
+                emptyState.style.display = 'none';
+                const bounds = [];
+
+                points.forEach((point) => {
+                    const color = mapColors[point.type] || '#6366f1';
+                    const radius = Math.min(28, 6 + Math.sqrt(point.count) * 5);
+                    const label = point.type === 'bot' ? 'bot signal(s)' : 'render event(s)';
+
+                    const marker = L.circleMarker([point.lat, point.lng], {
+                        radius: radius,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.7,
+                        weight: 1,
+                    }).bindPopup(
+                        `<strong>${point.label}</strong><br>${point.count} ${label}`
+                    );
+
+                    markerLayer.addLayer(marker);
+                    bounds.push([point.lat, point.lng]);
+                });
+
+                mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+            } catch (error) {
+                emptyState.style.display = 'block';
+                emptyState.textContent = 'Unable to load map data.';
+            }
+        }
+
+        initMap();
         // Activity Chart
         const ctxActivity = document.getElementById('activityChart').getContext('2d');
         // Ensure Django context variables are properly formatted for JS

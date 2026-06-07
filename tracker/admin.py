@@ -4,9 +4,9 @@ from .models import Document, AccessLog, BotSignal
 
 @admin.register(BotSignal)
 class BotSignalAdmin(admin.ModelAdmin):
-    list_display = ('bot_type', 'attack_vector', 'source_ip', 'timestamp', 'success')
-    list_filter = ('bot_type', 'attack_vector', 'success', 'timestamp')
-    search_fields = ('cid', 'source_ip', 'bot_type', 'attack_vector')
+    list_display = ('bot_type', 'attack_vector', 'source_ip', 'country', 'timestamp', 'success')
+    list_filter = ('bot_type', 'attack_vector', 'success', 'country', 'timestamp')
+    search_fields = ('cid', 'source_ip', 'bot_type', 'attack_vector', 'country', 'city')
     readonly_fields = ('timestamp',)
 
 

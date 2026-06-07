@@ -170,9 +170,99 @@ def events_list(request):
     return render(request, 'dashboard/events.html', context)
 
 
+def signals_list(request):
+    """List all bot attack signals with filtering."""
+    cid = request.GET.get('cid', '')
+    ip = request.GET.get('ip', '')
+    bot_type = request.GET.get('bot_type', '')
+    attack_vector = request.GET.get('attack_vector', '')
+    country = request.GET.get('country', '')
+    success = request.GET.get('success', '')
+
+    signals = BotSignal.objects.select_related('document').order_by('-timestamp')
+
+    if cid:
+        signals = signals.filter(cid__icontains=cid)
+    if ip:
+        signals = signals.filter(source_ip__icontains=ip)
+    if country:
+        signals = signals.filter(country__icontains=country)
+    if bot_type:
+        signals = signals.filter(bot_type__icontains=bot_type)
+    if attack_vector:
+        signals = signals.filter(attack_vector__icontains=attack_vector)
+    if success == 'true':
+        signals = signals.filter(success=True)
+    elif success == 'false':
+        signals = signals.filter(success=False)
+
+    page = int(request.GET.get('page', 1))
+    per_page = 50
+    total = signals.count()
+    total_pages = max((total + per_page - 1) // per_page, 1)
+    signals = signals[(page - 1) * per_page:page * per_page]
+
+    context = {
+        'signals': signals,
+        'filters': {
+            'cid': cid,
+            'ip': ip,
+            'country': country,
+            'bot_type': bot_type,
+            'attack_vector': attack_vector,
+            'success': success,
+        },
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'total_pages': total_pages,
+            'has_previous': page > 1,
+            'has_next': page < total_pages,
+            'previous_page': page - 1,
+            'next_page': page + 1,
+        },
+    }
+    return render(request, 'dashboard/signals.html', context)
+
+
+def signal_detail(request, signal_id):
+    """View full details of a single bot signal."""
+    from ..utils.geolocation import enrich_instance_geo
+
+    signal = get_object_or_404(
+        BotSignal.objects.select_related('document'),
+        id=signal_id,
+    )
+    enrich_instance_geo(signal, signal.source_ip)
+
+    related_by_cid = []
+    related_by_ip = []
+
+    if signal.cid:
+        related_by_cid = BotSignal.objects.filter(
+            cid=signal.cid
+        ).exclude(id=signal.id).order_by('-timestamp')[:10]
+
+    if signal.source_ip:
+        related_by_ip = BotSignal.objects.filter(
+            source_ip=signal.source_ip
+        ).exclude(id=signal.id).order_by('-timestamp')[:10]
+
+    context = {
+        'signal': signal,
+        'related_by_cid': related_by_cid,
+        'related_by_ip': related_by_ip,
+    }
+    return render(request, 'dashboard/signal_detail.html', context)
+
+
 def event_detail(request, event_id):
     """View full details of a single event."""
+    from ..utils.geolocation import enrich_instance_geo
+
     event = get_object_or_404(AccessLog, id=event_id)
+    enrich_instance_geo(event, event.ip_address)
     
     # Get related events (same CID or IP)
     related_by_cid = []
@@ -261,6 +351,52 @@ def api_events_by_endpoint(request):
         'labels': [d['endpoint'][:30] for d in data],
         'values': [d['count'] for d in data],
     })
+
+
+def api_map_points(request):
+    """Get aggregated map points for render events and bot signals."""
+    from ..utils.geolocation import enrich_missing_geolocation
+    from ..utils.map_data import aggregate_geo_points
+
+    enrich_missing_geolocation(limit=40)
+
+    days = request.GET.get('days', '30')
+    include = {part.strip() for part in request.GET.get('include', 'events,signals').split(',')}
+
+    since = None
+    if days != 'all':
+        try:
+            since = timezone.now() - timedelta(days=int(days))
+        except ValueError:
+            since = timezone.now() - timedelta(days=30)
+
+    points = []
+
+    if 'events' in include:
+        events = AccessLog.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+        )
+        if since:
+            events = events.filter(timestamp__gte=since)
+        points.extend(aggregate_geo_points(
+            events.values('latitude', 'longitude', 'city', 'country'),
+            'render',
+        ))
+
+    if 'signals' in include:
+        signals = BotSignal.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False,
+        )
+        if since:
+            signals = signals.filter(timestamp__gte=since)
+        points.extend(aggregate_geo_points(
+            signals.values('latitude', 'longitude', 'city', 'country'),
+            'bot',
+        ))
+
+    return JsonResponse({'points': points})
 
 
 # Import Min/Max for aggregation

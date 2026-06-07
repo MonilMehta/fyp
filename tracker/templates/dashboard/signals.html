@@ -1,0 +1,149 @@
+{% extends 'dashboard/base.html' %}
+{% load geo_tags %}
+
+{% block title %}Bot Signals - Asset Monitor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Bot Signals</h1>
+    <p class="page-subtitle">IDS attack and bot detection signals received from honeypot monitoring</p>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="grid-3">
+            <div class="form-group">
+                <label class="form-label">CID (Target Resource)</label>
+                <input type="text" name="cid" value="{{ filters.cid }}" class="form-input"
+                    placeholder="Search by CID...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source IP</label>
+                <input type="text" name="ip" value="{{ filters.ip }}" class="form-input" placeholder="Search IP...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Country</label>
+                <input type="text" name="country" value="{{ filters.country }}" class="form-input"
+                    placeholder="Search country...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Bot Type</label>
+                <input type="text" name="bot_type" value="{{ filters.bot_type }}" class="form-input"
+                    placeholder="e.g. scanner, crawler...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Attack Vector</label>
+                <input type="text" name="attack_vector" value="{{ filters.attack_vector }}" class="form-input"
+                    placeholder="Search attack vector...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Attack Outcome</label>
+                <select name="success" class="form-input">
+                    <option value="" {% if not filters.success %}selected{% endif %}>All</option>
+                    <option value="true" {% if filters.success == 'true' %}selected{% endif %}>Successful</option>
+                    <option value="false" {% if filters.success == 'false' %}selected{% endif %}>Blocked / Failed</option>
+                </select>
+            </div>
+            <div class="form-group" style="display: flex; align-items: flex-end;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Signals Table -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">{{ pagination.total }} signal{{ pagination.total|pluralize }}</h2>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Type / Vector</th>
+                <th>Target Resource</th>
+                <th>Source IP / Location</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for signal in signals %}
+            <tr>
+                <td class="text-muted text-sm" style="white-space: nowrap;">
+                    {{ signal.timestamp|date:"Y-m-d H:i:s" }}
+                </td>
+                <td>
+                    <div style="font-weight: 600;">{{ signal.bot_type|title|default:"Unknown" }}</div>
+                    <div class="text-xs text-muted">{{ signal.attack_vector|default:"-" }}</div>
+                </td>
+                <td>
+                    {% if signal.document %}
+                    <a href="{% url 'dashboard_document_detail' signal.document.id %}"
+                        class="font-mono badge badge-primary text-xs" style="text-decoration: none;">
+                        {{ signal.cid|truncatechars:12 }}
+                    </a>
+                    {% elif signal.cid %}
+                    <span class="font-mono badge badge-primary text-xs">{{ signal.cid|truncatechars:12 }}</span>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                    {% if signal.target_endpoint %}
+                    <div class="text-xs text-muted mt-1 truncate" style="max-width: 180px;"
+                        title="{{ signal.target_endpoint }}">
+                        {{ signal.target_endpoint }}
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="font-mono text-sm">{{ signal.source_ip|default:"-" }}</div>
+                    <div class="text-xs text-muted">{{ signal.city|geo_location:signal }}</div>
+                    {% if signal.isp %}
+                    <div class="text-xs text-muted truncate" style="max-width: 160px;" title="{{ signal.isp }}">{{ signal.isp }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if signal.success %}
+                    <span class="badge badge-error">Successful</span>
+                    {% else %}
+                    <span class="badge badge-success">Blocked / Failed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'dashboard_signal_detail' signal.id %}" class="btn btn-secondary"
+                        style="padding: 4px 12px; font-size: 0.8rem;">
+                        View
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-muted text-center" style="padding: 40px;">
+                    No bot signals found matching your filters.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if pagination.total_pages > 1 %}
+<div style="display: flex; justify-content: center; margin-top: 24px; gap: 8px;">
+    {% if pagination.has_previous %}
+    <a href="?page={{ pagination.previous_page }}&cid={{ filters.cid }}&ip={{ filters.ip }}&country={{ filters.country }}&bot_type={{ filters.bot_type }}&attack_vector={{ filters.attack_vector }}&success={{ filters.success }}"
+        class="btn btn-secondary">Previous</a>
+    {% endif %}
+
+    <span style="display: flex; align-items: center; color: var(--text-muted);">
+        Page {{ pagination.page }} of {{ pagination.total_pages }}
+    </span>
+
+    {% if pagination.has_next %}
+    <a href="?page={{ pagination.next_page }}&cid={{ filters.cid }}&ip={{ filters.ip }}&country={{ filters.country }}&bot_type={{ filters.bot_type }}&attack_vector={{ filters.attack_vector }}&success={{ filters.success }}"
+        class="btn btn-secondary">Next</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

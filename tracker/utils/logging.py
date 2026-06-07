@@ -44,6 +44,9 @@ def log_access(
         document = Document.get_or_create_by_cid(cid)
         is_first_access = not document.access_logs.exists()
     
+    from .geolocation import get_geo_for_ip
+    geo = get_geo_for_ip(metadata.get('ip_address') or '')
+
     # Create access log
     access_log = AccessLog.objects.create(
         document=document,
@@ -54,6 +57,12 @@ def log_access(
         request_body=request_body or {},
         is_first_access=is_first_access,
         timestamp=timestamp or timezone.now(),
+        country=geo.get('country', ''),
+        city=geo.get('city', ''),
+        isp=geo.get('isp', ''),
+        asn=geo.get('asn', ''),
+        latitude=geo.get('latitude'),
+        longitude=geo.get('longitude'),
         **metadata
     )
     

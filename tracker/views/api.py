@@ -197,13 +197,23 @@ def bot_signal(request):
             document = Document.objects.filter(cid=target_resource).first()
 
         details = data.get('details', {})
+        source_ip = data.get('source_ip') or None
+
+        from ..utils.geolocation import get_geo_for_ip
+        geo = get_geo_for_ip(source_ip) if source_ip else {}
 
         signal = BotSignal.objects.create(
             document=document,
             cid=target_resource,
             bot_type=data.get('bot_type', ''),
             attack_vector=data.get('attack_vector', ''),
-            source_ip=data.get('source_ip') or None,
+            source_ip=source_ip,
+            country=geo.get('country', ''),
+            city=geo.get('city', ''),
+            isp=geo.get('isp', ''),
+            asn=geo.get('asn', ''),
+            latitude=geo.get('latitude'),
+            longitude=geo.get('longitude'),
             target_endpoint=data.get('target_endpoint', ''),
             success=data.get('success', False),
             user_agent=details.get('user_agent', ''),

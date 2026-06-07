@@ -16,10 +16,13 @@ urlpatterns = [
     path('dashboard/', dashboard.index, name='dashboard_index'),
     path('dashboard/events/', dashboard.events_list, name='dashboard_events'),
     path('dashboard/events/<int:event_id>/', dashboard.event_detail, name='dashboard_event_detail'),
+    path('dashboard/signals/', dashboard.signals_list, name='dashboard_signals'),
+    path('dashboard/signals/<int:signal_id>/', dashboard.signal_detail, name='dashboard_signal_detail'),
     path('dashboard/documents/', dashboard.documents_list, name='dashboard_documents'),
     path('dashboard/documents/<int:doc_id>/', dashboard.document_detail, name='dashboard_document_detail'),
     path('dashboard/api/hourly/', dashboard.api_hourly_activity, name='api_hourly_activity'),
     path('dashboard/api/endpoints/', dashboard.api_events_by_endpoint, name='api_events_by_endpoint'),
+    path('dashboard/api/map/', dashboard.api_map_points, name='api_map_points'),
 
     # Document tracking APIs
     path('api/documents/create', api.create_document, name='api_create_document'),
